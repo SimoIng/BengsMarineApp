@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Timeout",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": ".*TimeoutException.*|.*timed out.*"
+  },
+  {
+    "name": "Elemento non trovato",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": ".*NoSuchElementException.*|.*element could not be located.*"
+  },
+  {
+    "name": "Stale element",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": ".*StaleElementReferenceException.*"
+  },
+  {
+    "name": "Problema di rete / backend",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": ".*ConnectException.*|.*503 Service Unavailable.*|.*SocketTimeoutException.*"
+  },
+  {
+    "name": "Altro errore",
+    "matchedStatuses": ["failed", "broken"]
+  }
+]

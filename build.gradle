@@ -1,0 +1,43 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.bithiatec'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    // JUnit 5
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+
+    // Appium + Selenium
+    testImplementation "io.appium:java-client:9.3.0"
+    testImplementation "org.seleniumhq.selenium:selenium-java:4.26.0"
+
+    // Allure JUnit5
+    testImplementation "io.qameta.allure:allure-junit5:2.29.0"
+}
+
+test {
+    useJUnitPlatform()
+
+    // Allure results -> build/allure-results
+    systemProperty "allure.results.directory", file("$buildDir/allure-results").absolutePath
+
+    // log verbosi (stile console)
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        showStandardStreams = true
+        exceptionFormat "full"
+    }
+}
