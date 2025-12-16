@@ -26,13 +26,23 @@ dependencies {
 
     // Allure JUnit5
     testImplementation "io.qameta.allure:allure-junit5:2.29.0"
+    testImplementation "io.qameta.allure:allure-attachments:2.29.0"
 }
+
+def allureResultsDir = file("$buildDir/allure-results")
+def allureReportDir  = file("$buildDir/allure-report")
 
 test {
     useJUnitPlatform()
 
     // Allure results -> build/allure-results
-    systemProperty "allure.results.directory", file("$buildDir/allure-results").absolutePath
+    systemProperty "allure.results.directory", allureResultsDir.absolutePath
+
+    // ✅ evita report vecchi: pulisce prima di ogni run
+    doFirst {
+        delete allureResultsDir
+        delete allureReportDir
+    }
 
     // log verbosi (stile console)
     testLogging {
@@ -40,4 +50,16 @@ test {
         showStandardStreams = true
         exceptionFormat "full"
     }
+}
+
+// ✅ genera report HTML sempre aggiornato (richiede Allure CLI nel PATH)
+tasks.register("allureReport", Exec) {
+    dependsOn test
+    commandLine "cmd", "/c", "allure generate \"${allureResultsDir.absolutePath}\" --clean -o \"${allureReportDir.absolutePath}\""
+}
+
+// ✅ apre il report in browser (server temporaneo) sempre aggiornato
+tasks.register("allureServe", Exec) {
+    dependsOn test
+    commandLine "cmd", "/c", "allure serve \"${allureResultsDir.absolutePath}\""
 }
