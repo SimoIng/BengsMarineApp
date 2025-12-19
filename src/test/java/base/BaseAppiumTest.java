@@ -2,149 +2,144 @@ package base;
 
 import io.appium.java_client.AppiumBy;
 import io.appium.java_client.android.AndroidDriver;
-import io.appium.java_client.android.options.UiAutomator2Options;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
+import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Duration;
-import java.util.List;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class BaseAppiumTest {
+public class BaseAppiumTest {
 
-    protected AndroidDriver driver;
+    // Driver condiviso per tutti i test
+    protected static AndroidDriver driver;
 
-    // === Driver static per JUnit extensions (screenshot/video) ===
-    private static WebDriver driverStatic;
+    // Configurazione dispositivo e app
+    private static final String UDID = "C50000000020322";
+    private static final String APP_PACKAGE = "com.bithiatec.bengsMarine";
+    private static final String APP_ACTIVITY = "com.bithiatec.bengs_marine.MainActivity";
+    private static final String APPIUM_URL = "http://127.0.0.1:4723";
 
-    public static WebDriver getDriverStatic() { return driverStatic; }
-    protected static void setDriverStatic(WebDriver d) { driverStatic = d; }
-
-    // ====== CONFIG (override se vuoi) ======
-    protected String udid() { return System.getProperty("udid", "C50000000020322"); }
-    protected String appPackage() { return System.getProperty("appPackage", "com.bithiatec.bengsMarine"); }
-    protected String appActivity() { return System.getProperty("appActivity", "com.bithiatec.bengs_marine.MainActivity"); }
-    protected String appiumUrl() { return System.getProperty("appiumUrl", "http://127.0.0.1:4723"); }
-
+    // ======= SETUP ==================================================
     @BeforeAll
-    void setUpClass() throws Exception {
-        debug("@BeforeAll setUpClass");
-        debug("udid=" + udid());
-        debug("appPackage=" + appPackage());
-        debug("appActivity=" + appActivity());
-        debug("appiumUrl=" + appiumUrl());
+    public static void setUpClass() throws MalformedURLException {
+        System.out.println("DEBUG - @BeforeAll setUpClass");
+        System.out.println("DEBUG - udid=" + UDID);
+        System.out.println("DEBUG - appPackage=" + APP_PACKAGE);
+        System.out.println("DEBUG - appActivity=" + APP_ACTIVITY);
+        System.out.println("DEBUG - appiumUrl=" + APPIUM_URL);
 
-        UiAutomator2Options options = new UiAutomator2Options()
-                .setUdid(udid())
-                .setAppPackage(appPackage())
-                .setAppActivity(appActivity())
-                .setNewCommandTimeout(Duration.ofSeconds(120))
-                .autoGrantPermissions();
+        DesiredCapabilities caps = new DesiredCapabilities();
 
-        debug("Creo AndroidDriver verso Appium...");
-        driver = new AndroidDriver(new URL(appiumUrl()), options);
-        debug("AndroidDriver creato correttamente");
+        // ✅ Tutte le capability devono avere prefisso appium: per Appium 9+
+        caps.setCapability("platformName", "Android");
+        caps.setCapability("appium:automationName", "UIAutomator2");
+        caps.setCapability("appium:deviceName", "Android Device");
+        caps.setCapability("appium:udid", UDID);
+        caps.setCapability("appium:appPackage", APP_PACKAGE);
+        caps.setCapability("appium:appActivity", APP_ACTIVITY);
+        caps.setCapability("appium:autoGrantPermissions", true);
+        caps.setCapability("appium:newCommandTimeout", 120);
+        caps.setCapability("appium:noReset", false);
 
-        setDriverStatic(driver);
+        System.out.println("DEBUG - Creo AndroidDriver verso Appium...");
+        System.out.println("DEBUG - Capabilities: " + caps.asMap());
+
+        try {
+            driver = new AndroidDriver(new URL(APPIUM_URL), caps);
+            System.out.println("DEBUG - AndroidDriver creato correttamente");
+        } catch (Exception e) {
+            System.err.println("❌ ERRORE - Impossibile creare AndroidDriver: " + e.getMessage());
+            throw e;
+        }
     }
 
+    // ======= TEARDOWN ==================================================
     @AfterAll
-    void tearDownClass() {
-        debug("@AfterAll tearDownClass");
+    public static void tearDownClass() {
+        System.out.println("DEBUG - @AfterAll tearDownClass");
         if (driver != null) {
-            try { driver.quit(); } catch (Exception ignored) {}
-        }
-        setDriverStatic(null);
-    }
-
-    // ====== LOG ======
-    protected void debug(String msg) {
-        System.out.println("DEBUG - " + msg);
-    }
-
-    // ====== CLICK SAFE ======
-    protected boolean clickIfPresent(By by, String name) {
-        try {
-            List<WebElement> els = driver.findElements(by);
-            if (!els.isEmpty() && els.get(0).isDisplayed()) {
-                debug("CLICK popup: " + name + " | by=" + by);
-                els.get(0).click();
-                return true;
-            }
-        } catch (Exception e) {
-            debug("clickIfPresent EX (" + name + "): " + e.getMessage());
-        }
-        return false;
-    }
-
-    /** Dialog errore login: bottone Ok */
-    protected void dismissBlockingDialogs() {
-        for (int i = 0; i < 5; i++) {
-            boolean closed = false;
-            closed |= clickIfPresent(AppiumBy.accessibilityId("Ok"), "Dialog Errore (Ok)");
-            closed |= clickIfPresent(AppiumBy.accessibilityId("OK"), "Dialog Errore (OK)");
-            if (!closed) return;
-            try { Thread.sleep(250); } catch (InterruptedException ignored) {}
+            driver.quit();
         }
     }
 
-    /** Termini & Condizioni: clicca "Accetta" se presente */
-    protected void acceptTermsIfPresent() {
-        By accetta = AppiumBy.accessibilityId("Accetta");
-        try {
-            List<WebElement> els = driver.findElements(accetta);
-            if (!els.isEmpty() && els.get(0).isDisplayed()) {
-                debug("Termini & Condizioni trovati -> clicco 'Accetta'");
-                new WebDriverWait(driver, Duration.ofSeconds(10))
-                        .until(ExpectedConditions.elementToBeClickable(accetta))
-                        .click();
-                try { Thread.sleep(400); } catch (InterruptedException ignored) {}
-            }
-        } catch (Exception e) {
-            debug("acceptTermsIfPresent EX: " + e.getMessage());
-        }
-    }
-
-    /** Da chiamare ad inizio test */
+    // ======= UTILITY: Gestione flussi ==================================
     protected void handleStartupFlow() {
-        debug("handleStartupFlow - start | activity=" + safeActivity());
-
-        // chiude eventuali dialog
-        dismissBlockingDialogs();
-
-        // prova a gestire termini (possono apparire “in ritardo”)
-        for (int i = 0; i < 3; i++) {
-            acceptTermsIfPresent();
-            dismissBlockingDialogs();
+        System.out.println("DEBUG - handleStartupFlow - start | activity=" + safeActivity());
+        try {
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
+            WebElement accettaButton = wait.until(ExpectedConditions.presenceOfElementLocated(
+                    AppiumBy.accessibilityId("Accetta")));
+            if (accettaButton != null) {
+                System.out.println("DEBUG - Termini & Condizioni trovati -> clicco 'Accetta'");
+                accettaButton.click();
+            }
+        } catch (TimeoutException e) {
+            System.out.println("DEBUG - Nessun Termini & Condizioni trovato.");
         }
-
-        debug("handleStartupFlow - end");
+        System.out.println("DEBUG - handleStartupFlow - end");
     }
 
-    /** Attende login pronta: bottone Accedi + 2 EditText */
-    protected void waitForLoginPageReady() {
-        dismissBlockingDialogs();
+    protected void handlePostLoginFlow() {
+        System.out.println("DEBUG - handlePostLoginFlow - start | activity=" + safeActivity());
+        try {
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebElement dialogErrore = wait.until(ExpectedConditions.presenceOfElementLocated(
+                    AppiumBy.accessibilityId("Dialog Errore")));
 
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
-
-        debug("Aspetto bottone 'Accedi' visibile...");
-        wait.until(ExpectedConditions.visibilityOfElementLocated(AppiumBy.accessibilityId("Accedi")));
-
-        debug("Aspetto 2 campi EditText...");
-        wait.until(d -> d.findElements(By.className("android.widget.EditText")).size() >= 2);
-
-        dismissBlockingDialogs();
+            if (dialogErrore != null) {
+                System.out.println("DEBUG - CLICK popup: Dialog Errore (Ok)");
+                driver.findElement(AppiumBy.accessibilityId("Ok")).click();
+            }
+        } catch (TimeoutException e) {
+            System.out.println("DEBUG - Nessun dialogo Errore trovato, login probabilmente OK.");
+        }
+        System.out.println("DEBUG - handlePostLoginFlow - end");
     }
 
+    // ======= UTILITY: Wait e helper =====================================
+    protected void waitForHomeReady() {
+        System.out.println("DEBUG - Attendo HOME pronta (tab Home/Colonnina)...");
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(45));
+
+        try {
+            wait.until(ExpectedConditions.presenceOfElementLocated(AppiumBy.accessibilityId("tabHome")));
+            System.out.println("DEBUG - Home trovata!");
+        } catch (TimeoutException e) {
+            System.out.println("DEBUG - Home NON trovata. Activity corrente: " + safeActivity());
+            throw e;
+        }
+    }
+
+    protected boolean isElementPresent(By locator) {
+        try {
+            driver.findElement(locator);
+            return true;
+        } catch (NoSuchElementException e) {
+            return false;
+        }
+    }
+
+    // ======= UTILITY: Activity e driver access ==========================
     protected String safeActivity() {
-        try { return driver.currentActivity(); }
-        catch (Exception e) { debug("safeActivity EX: " + e.getMessage()); return "<unknown>"; }
+        try {
+            String activity = driver.currentActivity();
+            if (activity == null || activity.isEmpty()) {
+                return "unknown";
+            }
+            return activity;
+        } catch (Exception e) {
+            System.out.println("DEBUG - Impossibile leggere activity corrente: " + e.getMessage());
+            return "unknown";
+        }
+    }
+
+    // ✅ Metodo statico per screenshot e video extension
+    public static AndroidDriver getDriverStatic() {
+        return driver;
     }
 }
