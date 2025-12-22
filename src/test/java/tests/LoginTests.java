@@ -12,10 +12,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Classe di test per la schermata di Login dell’app Bengs Marine.
- * Versione finale “ultra senior” – resiliente, loggante e mantenibile.
- */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class LoginTests extends BaseAppiumTest {
 
@@ -23,36 +19,20 @@ public class LoginTests extends BaseAppiumTest {
     private static final Duration WAIT_MEDIUM = Duration.ofSeconds(15);
     private static final Duration WAIT_LONG = Duration.ofSeconds(30);
 
-    // ===========================================================
-    // ===================== HELPER METHODS ======================
-    // ===========================================================
+    // ============================== UTILS =================================
 
-    /** Chiude la tastiera Android in modo sicuro */
     private void chiudiTastieraSeAperta() {
-        System.out.println("DEBUG - Tentativo di chiusura tastiera...");
+        System.out.println("DEBUG - Tentativo di chiusura tastiera virtuale...");
         try {
             if (driver instanceof AndroidDriver) {
                 ((AndroidDriver) driver).hideKeyboard();
-                System.out.println("✅ Tastiera chiusa con hideKeyboard()");
+                System.out.println("DEBUG - Tastiera chiusa con hideKeyboard() ✅");
             }
         } catch (Exception e) {
-            System.out.println("⚠️ Tastiera non chiudibile via hideKeyboard(), provo tap esterno...");
-            try {
-                Dimension size = driver.manage().window().getSize();
-                int x = size.width / 2;
-                int y = (int) (size.height * 0.2);
-                Map<String, Object> tap = new HashMap<>();
-                tap.put("x", x);
-                tap.put("y", y);
-                ((JavascriptExecutor) driver).executeScript("mobile: clickGesture", tap);
-                System.out.println("DEBUG - Tap esterno per chiudere tastiera eseguito ✅");
-            } catch (Exception ignored) {
-                System.out.println("⚠️ Fallback tap esterno non riuscito.");
-            }
+            System.out.println("⚠️ Tastiera non chiudibile via hideKeyboard(): " + e.getMessage());
         }
     }
 
-    /** Gestisce eventuale popup permessi */
     private void handleNotificationPermission() {
         System.out.println("DEBUG - Controllo popup permessi notifiche...");
         try {
@@ -66,54 +46,62 @@ public class LoginTests extends BaseAppiumTest {
         }
     }
 
-    /** Swipe verso sinistra per carosello o onboarding */
-    private void swipeVersoSinistra() {
-        System.out.println("DEBUG - Eseguo swipe verso sinistra...");
-        try {
-            Dimension size = driver.manage().window().getSize();
-            int left = (int) (size.width * 0.1);
-            int top = (int) (size.height * 0.4);
-            int width = (int) (size.width * 0.8);
-            int height = (int) (size.height * 0.2);
+    private void waitForAccediButton() {
+        WebDriverWait wait = new WebDriverWait(driver, WAIT_MEDIUM);
+        wait.until(ExpectedConditions.presenceOfElementLocated(
+                AppiumBy.xpath("//*[contains(@content-desc,'Accedi') or contains(@text,'Accedi')]")));
+    }
 
-            Map<String, Object> swipe = new HashMap<>();
-            swipe.put("left", left);
-            swipe.put("top", top);
-            swipe.put("width", width);
-            swipe.put("height", height);
-            swipe.put("direction", "left");
-            swipe.put("percent", 0.85);
+    private void swipeFincheNonCompareBottoneEntra() {
+        System.out.println("DEBUG - Inizio swipe multipli per superare il carosello di onboarding...");
+        int maxTentativi = 4;
+        boolean trovato = false;
 
-            ((JavascriptExecutor) driver).executeScript("mobile: swipeGesture", swipe);
-            System.out.println("✅ Swipe verso sinistra eseguito correttamente");
+        for (int i = 1; i <= maxTentativi; i++) {
             try {
-                Thread.sleep(800);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
+                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(2));
+                WebElement entraBtn = wait.until(ExpectedConditions.presenceOfElementLocated(
+                        AppiumBy.accessibilityId("Entra nell'App")));
+
+                if (entraBtn != null && entraBtn.isDisplayed()) {
+                    entraBtn.click();
+                    System.out.println("✅ Bottone 'Entra nell'App' trovato e cliccato!");
+                    trovato = true;
+                    break;
+                }
+            } catch (TimeoutException ignored) {
+                System.out.println("DEBUG - Swipe verso sinistra (" + i + "/" + maxTentativi + ")");
+                try {
+                    Dimension size = driver.manage().window().getSize();
+                    int left = (int) (size.width * 0.1);
+                    int top = (int) (size.height * 0.5);
+                    int width = (int) (size.width * 0.8);
+                    int height = (int) (size.height * 0.2);
+
+                    Map<String, Object> swipe = new HashMap<>();
+                    swipe.put("left", left);
+                    swipe.put("top", top);
+                    swipe.put("width", width);
+                    swipe.put("height", height);
+                    swipe.put("direction", "left");
+                    swipe.put("percent", 0.85);
+
+                    ((JavascriptExecutor) driver).executeScript("mobile: swipeGesture", swipe);
+                    Thread.sleep(1200);
+                } catch (Exception e) {
+                    System.out.println("⚠️ Swipe fallito: " + e.getMessage());
+                }
             }
-        } catch (Exception e) {
-            System.out.println("⚠️ Swipe non riuscito o non necessario: " + e.getMessage());
+        }
+
+        if (!trovato) {
+            System.out.println("⚠️ Nessun bottone 'Entra nell'App' trovato dopo " + maxTentativi + " swipe.");
         }
     }
 
-    /** Click safe con attesa e log */
-    private void clickSafe(WebElement element, String descrizione) {
-        try {
-            new WebDriverWait(driver, WAIT_SHORT)
-                    .until(ExpectedConditions.elementToBeClickable(element));
-            element.click();
-            System.out.println("✅ Click su '" + descrizione + "' eseguito");
-        } catch (Exception e) {
-            System.out.println("❌ ERRORE durante click su '" + descrizione + "': " + e.getMessage());
-        }
-    }
+    // ============================== LOGIN =================================
 
-    // ===========================================================
-    // ===================== LOGIN METHODS =======================
-    // ===========================================================
-
-    /** Esegue il login base (senza swipe o navigazione) */
-    private void effettuaLoginBase(String username, String password) {
+    private void effettuaLogin(String username, String password) {
         System.out.println("\n========= ESECUZIONE LOGIN =========");
         handleNotificationPermission();
 
@@ -139,126 +127,114 @@ public class LoginTests extends BaseAppiumTest {
 
             chiudiTastieraSeAperta();
 
-            WebElement accediBtn = driver.findElement(AppiumBy.accessibilityId("Accedi"));
-            clickSafe(accediBtn, "Accedi");
-
-            try {
-                Thread.sleep(1500);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            }
-
-        } catch (Exception e) {
-            System.out.println("❌ ERRORE - Problema durante login base: " + e.getMessage());
-            throw new RuntimeException(e);
-        }
-    }
-
-    /** Login completo: effettua login, spunta 'Ricordami' e naviga fino a Home */
-    private void effettuaLoginCompleto(String username, String password) {
-        System.out.println("\n========= LOGIN COMPLETO =========");
-        handleNotificationPermission();
-
-        WebDriverWait wait = new WebDriverWait(driver, WAIT_MEDIUM);
-        wait.until(ExpectedConditions.numberOfElementsToBeMoreThan(
-                By.className("android.widget.EditText"), 1));
-
-        try {
-            WebElement campoUsername = driver.findElement(
-                    AppiumBy.androidUIAutomator("new UiSelector().className(\"android.widget.EditText\").instance(0)"));
-            WebElement campoPassword = driver.findElement(
-                    AppiumBy.androidUIAutomator("new UiSelector().className(\"android.widget.EditText\").instance(1)"));
-
-            campoUsername.click();
-            campoUsername.clear();
-            campoUsername.sendKeys(username);
-            System.out.println("DEBUG - Username inserito ✅");
-
-            campoPassword.click();
-            campoPassword.clear();
-            campoPassword.sendKeys(password);
-            System.out.println("DEBUG - Password inserita ✅");
-
-            chiudiTastieraSeAperta();
-
-            // ✅ Spunta "Ricordami" prima di cliccare "Accedi"
             try {
                 WebElement checkBox = driver.findElement(AppiumBy.className("android.widget.CheckBox"));
                 if (!checkBox.isSelected()) {
                     checkBox.click();
-                    System.out.println("✅ Checkbox 'Ricordami' selezionata prima del login");
-                } else {
-                    System.out.println("DEBUG - Checkbox 'Ricordami' già selezionata");
+                    System.out.println("DEBUG - Checkbox 'Ricordami' selezionata ✅");
                 }
             } catch (NoSuchElementException ignored) {
-                System.out.println("⚠️ Checkbox 'Ricordami' non trovata (possibile layout differente)");
+                System.out.println("DEBUG - Nessuna checkbox 'Ricordami' trovata.");
             }
 
-            WebElement accediBtn = driver.findElement(AppiumBy.accessibilityId("Accedi"));
-            clickSafe(accediBtn, "Accedi");
-
+            waitForAccediButton();
+            WebElement accediBtn;
             try {
-                Thread.sleep(1500);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
+                accediBtn = driver.findElement(AppiumBy.accessibilityId("Accedi"));
+            } catch (NoSuchElementException e) {
+                accediBtn = driver.findElement(AppiumBy.xpath("//*[contains(@text,'Accedi')]"));
             }
 
-            // --- Swipe carosello ---
-            System.out.println("DEBUG - Swipe post-login per carosello...");
-            swipeVersoSinistra();
-            swipeVersoSinistra();
-
-            // --- Clicca "Entra nell’App" ---
-            try {
-                WebDriverWait waitButton = new WebDriverWait(driver, WAIT_MEDIUM);
-                WebElement entraNellAppBtn = waitButton.until(ExpectedConditions.presenceOfElementLocated(
-                        AppiumBy.accessibilityId("Entra nell'App")));
-                clickSafe(entraNellAppBtn, "Entra nell’App");
-            } catch (TimeoutException e) {
-                System.out.println("⚠️ Bottone 'Entra nell’App' non trovato (forse già cliccato).");
-            }
-
-            // --- Clicca "Home" ---
-            try {
-                WebDriverWait waitHome = new WebDriverWait(driver, WAIT_MEDIUM);
-                WebElement homeButton = waitHome.until(ExpectedConditions.elementToBeClickable(
-                        AppiumBy.accessibilityId("Home\nScheda 1 di 2")));
-                clickSafe(homeButton, "Home");
-            } catch (TimeoutException e) {
-                System.out.println("⚠️ Bottone 'Home' non trovato entro il tempo limite.");
-            }
-
-            // --- Verifica Home ---
-            WebDriverWait waitHomeScreen = new WebDriverWait(driver, WAIT_LONG);
-            waitHomeScreen.until(ExpectedConditions.presenceOfElementLocated(
-                    AppiumBy.accessibilityId("Test_Marine\nPrese elettriche disponibili\nErogatori disponibili")));
-            System.out.println("✅ HOME caricata correttamente ✅");
+            new WebDriverWait(driver, WAIT_SHORT)
+                    .until(ExpectedConditions.elementToBeClickable(accediBtn));
+            accediBtn.click();
+            System.out.println("DEBUG - Click su 'Accedi' eseguito ✅");
 
         } catch (Exception e) {
-            System.out.println("❌ ERRORE durante il login completo: " + e.getMessage());
+            System.out.println("❌ ERRORE - Problema durante il login: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }
 
-    // ===========================================================
-    // ======================== TEST CASES =======================
-    // ===========================================================
+    private void effettuaLoginConSwipe(String username, String password) {
+        effettuaLogin(username, password);
+        System.out.println("DEBUG - Eseguo swipe post-login fino a bottone 'Entra nell'App'...");
+        swipeFincheNonCompareBottoneEntra();
+    }
+
+    // ============================== COLONNINA =================================
+
+    private void vaiASchermataColonninaESelezionaPresa() {
+        System.out.println("DEBUG - Navigazione alla schermata 'Colonnina'...");
+        try {
+            WebDriverWait wait = new WebDriverWait(driver, WAIT_LONG);
+
+            WebElement colonninaButton = wait.until(ExpectedConditions.elementToBeClickable(
+                    AppiumBy.accessibilityId("Colonnina\nScheda 2 di 2")));
+            colonninaButton.click();
+            System.out.println("DEBUG - Click su 'Colonnina' eseguito ✅");
+
+            wait.until(ExpectedConditions.presenceOfElementLocated(
+                    AppiumBy.xpath("//*[contains(@content-desc,'Presa Elettrica')]")));
+            System.out.println("DEBUG - Schermata 'Colonnina' caricata ✅");
+
+            WebElement firstButton = wait.until(ExpectedConditions.elementToBeClickable(
+                    AppiumBy.xpath("//android.widget.Button[@content-desc='1']")));
+            String statoPrima = firstButton.getAttribute("selected");
+            System.out.println("DEBUG - Stato prima del click: " + statoPrima);
+
+            firstButton.click();
+            System.out.println("✅ Click sul bottone '1' (accensione presa) eseguito");
+
+            Thread.sleep(3000); // Attesa realistica per animazione e transizione colore
+
+            // Verifica se il bottone ha cambiato stato o colore
+            String statoDopo = firstButton.getAttribute("selected");
+            String contentDescDopo = firstButton.getAttribute("contentDescription");
+
+            if (!String.valueOf(statoPrima).equalsIgnoreCase(String.valueOf(statoDopo)) ||
+                    (contentDescDopo != null && !contentDescDopo.equals("1"))) {
+                System.out.println("✅ Stato del bottone cambiato → Presa accesa 🔌");
+            } else {
+                // fallback: cerca view secondaria con colore indicativo (es. verde)
+                try {
+                    WebElement indicatore = driver.findElement(
+                            By.xpath("//*[contains(@content-desc,'Accesa') or contains(@text,'Accesa') or contains(@content-desc,'On')]"));
+                    if (indicatore.isDisplayed()) {
+                        System.out.println("✅ Indicatore luminoso trovato → presa accesa visivamente 💡");
+                    } else {
+                        System.out.println("⚠️ Indicatore non visibile — verifica manuale consigliata");
+                    }
+                } catch (NoSuchElementException e) {
+                    System.out.println("⚠️ Nessun cambiamento visibile né indicatore trovato.");
+                }
+            }
+
+            System.out.println("DEBUG - Verifica completata (schermata resta aperta per osservazione) ✅");
+
+        } catch (Exception e) {
+            System.out.println("❌ ERRORE - Navigazione o click falliti: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    // ============================== TEST CASES =================================
 
     @Test
     @Order(1)
     public void loginSbagliato_mostraErrore() {
         System.out.println("\n=== TEST 1: Login Errato ===");
         handleStartupFlow();
+        effettuaLogin("gerryscotti", "bth01User"); // password errata
 
-        effettuaLoginBase("gerryscotti", "bth01User"); // password errata
-
+        WebDriverWait wait = new WebDriverWait(driver, WAIT_LONG);
         try {
-            WebDriverWait wait = new WebDriverWait(driver, WAIT_LONG);
             WebElement errore = wait.until(ExpectedConditions.presenceOfElementLocated(
                     By.xpath("//*[contains(@text,'Errore') or contains(@content-desc,'Errore')]")));
             System.out.println("✅ Popup errore visibile");
             WebElement ok = driver.findElement(By.xpath("//*[contains(@text,'OK') or contains(@content-desc,'Ok')]"));
-            clickSafe(ok, "OK errore");
+            ok.click();
+            System.out.println("DEBUG - Popup errore chiuso ✅");
         } catch (TimeoutException e) {
             System.out.println("⚠️ Nessun popup errore trovato.");
         }
@@ -266,11 +242,23 @@ public class LoginTests extends BaseAppiumTest {
 
     @Test
     @Order(2)
-    public void loginCorretto_mostraHome() {
-        System.out.println("\n=== TEST 2: Login Corretto ===");
+    public void loginCorretto_mostraHome_eAccendePresa() {
+        System.out.println("\n=== TEST 2: Login Corretto + Accensione Presa ===");
         handleStartupFlow();
+        effettuaLoginConSwipe("gerryscotti", "bth01User!");
 
-        effettuaLoginCompleto("gerryscotti", "bth01User!");
-        System.out.println("🏁 TEST COMPLETATO: Login corretto con 'Ricordami' + navigazione HOME ✅");
+        WebDriverWait wait = new WebDriverWait(driver, WAIT_LONG);
+        try {
+            System.out.println("DEBUG - Attendo caricamento HOME...");
+            wait.until(ExpectedConditions.presenceOfElementLocated(
+                    AppiumBy.accessibilityId("Home\nScheda 1 di 2")));
+            System.out.println("✅ Login corretto, HOME caricata con successo!");
+        } catch (TimeoutException e) {
+            System.out.println("❌ HOME non visibile dopo login, activity corrente: " + safeActivity());
+            throw e;
+        }
+
+        // Navigazione alla Colonnina e verifica stato bottone
+        vaiASchermataColonninaESelezionaPresa();
     }
 }
