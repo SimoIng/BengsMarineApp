@@ -24,6 +24,10 @@ Thumbs.db
 screenshots/
 videos/
 *.log
+logs/
+reports/
+*.csv
+*.png
 
 ########################################
 # Allure reports
@@ -36,3 +40,11 @@ allure-report/
 ########################################
 local.properties
 .env
+test.properties
+
+########################################
+# Temporary / Cache
+########################################
+tmp/
+cache/
+*.tmp
