@@ -1,0 +1,41 @@
+{
+  "name": "bengsmarineapp",
+  "version": "1.0.0",
+  "description": "Automated testing suite for BengsMarine application with comprehensive HTML and PDF reporting",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generate-html": "node generate-embedded-html-report.js",
+    "generate-pdf": "node generate-pdf-from-html.js",
+    "generate-zip": "node generate-allure-zip.js",
+    "generate-all": "npm run generate-html && npm run generate-pdf && npm run generate-zip"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SimoIng/BengsMarineApp.git"
+  },
+  "keywords": [
+    "appium",
+    "testing",
+    "automation",
+    "mobile-testing",
+    "allure",
+    "reporting",
+    "bengsmarine"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SimoIng/BengsMarineApp/issues"
+  },
+  "homepage": "https://github.com/SimoIng/BengsMarineApp#readme",
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "puppeteer": "^24.35.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

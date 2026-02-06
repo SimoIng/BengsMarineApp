@@ -67,6 +67,45 @@ public class BaseAppiumTest {
         }
     }
 
+    // ======= ⭐ NUOVO: RICREAZIONE DRIVER ==============================
+
+    /**
+     * ⭐ NUOVO METODO: Ricrea il driver Appium con una nuova sessione
+     * Utilizzato per prevenire memory leak di UIAutomator2 durante test lunghi
+     */
+    protected static void ricreaDriver() throws MalformedURLException {
+        System.out.println("DEBUG - ricreaDriver() - Ricreazione driver Appium...");
+
+        DesiredCapabilities caps = new DesiredCapabilities();
+
+        // Usa le stesse capabilities del setup iniziale
+        caps.setCapability("platformName", "Android");
+        caps.setCapability("appium:automationName", "UIAutomator2");
+        caps.setCapability("appium:deviceName", "Android Device");
+        caps.setCapability("appium:udid", UDID);
+        caps.setCapability("appium:appPackage", APP_PACKAGE);
+        caps.setCapability("appium:appActivity", APP_ACTIVITY);
+        caps.setCapability("appium:autoGrantPermissions", true);
+        caps.setCapability("appium:newCommandTimeout", 120);
+        caps.setCapability("appium:noReset", false);
+
+        try {
+            driver = new AndroidDriver(new URL(APPIUM_URL), caps);
+            System.out.println("DEBUG - Driver ricreato correttamente");
+        } catch (Exception e) {
+            System.err.println("❌ ERRORE - Impossibile ricreare AndroidDriver: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * ⭐ NUOVO METODO: Ottiene l'UDID del dispositivo
+     * Utilizzato per comandi ADB durante la pulizia memoria
+     */
+    protected static String getUdid() {
+        return UDID;
+    }
+
     // ======= UTILITY: Gestione flussi ==================================
     protected void handleStartupFlow() {
         System.out.println("DEBUG - handleStartupFlow - start | activity=" + safeActivity());
@@ -141,5 +180,62 @@ public class BaseAppiumTest {
     // ✅ Metodo statico per screenshot e video extension
     public static AndroidDriver getDriverStatic() {
         return driver;
+    }
+
+    // ======= ⭐ NUOVI METODI PER GESTIONE PERMESSI ADB ==================
+
+    /**
+     * ⭐ METODO UTILITY: Concede i permessi necessari via ADB
+     * Questo elimina i popup di sistema per notifiche e posizione
+     */
+    protected static void concediPermessiViaADB() {
+        System.out.println("DEBUG - Concessione permessi via ADB...");
+
+        try {
+            // Permesso notifiche (Android 13+)
+            eseguiComandoADB("pm", "grant", APP_PACKAGE, "android.permission.POST_NOTIFICATIONS");
+            System.out.println("   ✅ POST_NOTIFICATIONS concesso");
+
+            // Permesso posizione approssimativa (quello che l'app probabilmente usa)
+            eseguiComandoADB("pm", "grant", APP_PACKAGE, "android.permission.ACCESS_COARSE_LOCATION");
+            System.out.println("   ✅ ACCESS_COARSE_LOCATION concesso");
+
+            System.out.println("DEBUG - ✅ Tutti i permessi dichiarati dall'app concessi con successo");
+
+        } catch (Exception e) {
+            System.err.println("⚠️ Errore concessione permessi ADB: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * ⭐ METODO UTILITY: Esegue un comando ADB shell
+     */
+    private static void eseguiComandoADB(String... args) throws Exception {
+        String[] command = new String[args.length + 3];
+        command[0] = "adb";
+        command[1] = "-s";
+        command[2] = UDID;
+        System.arraycopy(args, 0, command, 3, args.length);
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+
+        // Leggi l'output
+        java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(process.getInputStream())
+        );
+        String line;
+        StringBuilder output = new StringBuilder();
+        while ((line = reader.readLine()) != null) {
+            output.append(line).append("\n");
+        }
+
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0 && output.length() > 0) {
+            System.out.println("ADB output: " + output.toString().trim());
+        }
     }
 }

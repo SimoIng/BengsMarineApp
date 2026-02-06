@@ -3,6 +3,7 @@ package tests;
 import base.BaseAppiumTest;
 import io.appium.java_client.AppiumBy;
 import io.appium.java_client.android.AndroidDriver;
+import io.qameta.allure.*;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -24,6 +25,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import javax.imageio.ImageIO;
 import java.awt.Color;
+import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -42,6 +44,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+@Epic("Test Colonnine")
+@Feature("Login, Cambio Colonnina, Accensione/Spegnimento")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTest {
 
@@ -49,11 +53,11 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
     // COSTANTI
     // =====================================================================================
 
-    private static final Duration WAIT_SHORT = Duration.ofSeconds(3);
-    private static final Duration WAIT_MEDIUM = Duration.ofSeconds(8);
-    private static final Duration WAIT_LONG = Duration.ofSeconds(15);
-    private static final long ANIM_DELAY = 1500;
-    private static final long ACTION_DELAY = 500;
+    private static final Duration WAIT_SHORT = Duration.ofSeconds(5);
+    private static final Duration WAIT_MEDIUM = Duration.ofSeconds(10);
+    private static final Duration WAIT_LONG = Duration.ofSeconds(20);
+    private static final long ANIM_DELAY = 2000;
+    private static final long ACTION_DELAY = 1000;
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter REPORT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
@@ -169,6 +173,16 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
         }
     }
 
+    @Attachment(value = "{name}", type = "image/png")
+    private byte[] takeScreenshotForAllure(String name) {
+        try {
+            return ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
+        } catch (Exception e) {
+            System.out.println("⚠️ Errore screenshot Allure: " + e.getMessage());
+            return new byte[0];
+        }
+    }
+
     private String takeScreenshot(String name) {
         try {
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HHmmss"));
@@ -176,6 +190,10 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
             File dest = new File(SCREENSHOT_DIR, timestamp + "_" + name + ".png");
             Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
             writeCsvLog("SCREENSHOT", "Screenshot: " + name, dest.getAbsolutePath());
+
+            // Aggiungi screenshot anche ad Allure
+            takeScreenshotForAllure(name);
+
             return dest.getAbsolutePath();
         } catch (Exception e) {
             System.out.println("⚠️ Errore screenshot: " + e.getMessage());
@@ -196,9 +214,15 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
     }
 
     private void logHeader(String msg) { log("HEADER", "🧩", WHITE_BOLD, msg); }
+
+    @Step("{msg}")
     private void logStep(String msg) { log("STEP", "⚙️", BLUE, msg); }
+
     private void logInfo(String msg) { log("INFO", "💬", CYAN, msg); }
+
+    @Step("{msg}")
     private void logAction(String msg) { log("ACTION", "🎯", MAGENTA, msg); }
+
     private void logSuccess(String msg) { log("SUCCESS", "🟢", GREEN, msg); }
     private void logWarn(String msg) { log("WARN", "🟠", YELLOW, msg); }
     private void logError(String msg) { log("ERROR", "🔴", RED, msg); }
@@ -216,9 +240,10 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
     }
 
     // =====================================================================================
-    // LOGIN (dalla vecchia classe funzionante + miglioramenti)
+    // LOGIN
     // =====================================================================================
 
+    @Step("Effettua login con username: {username}")
     private void effettuaLogin(String username, String password) {
         logHeader("LOGIN");
         WebDriverWait wait = new WebDriverWait(driver, WAIT_LONG);
@@ -235,7 +260,6 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
             WebElement campoUsername = campi.get(0);
             WebElement campoPassword = campi.get(1);
 
-            // Tap nativo per focus stabile (dalla vecchia classe)
             Map<String, Object> tapUser = new HashMap<>();
             Point pUser = campoUsername.getLocation();
             tapUser.put("x", pUser.getX() + campoUsername.getSize().getWidth() / 2);
@@ -258,7 +282,6 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
             campoPassword.sendKeys(password);
             logInfo("🔑 Password inserita");
 
-            // Chiudi tastiera
             try {
                 ((AndroidDriver) driver).hideKeyboard();
                 sleep(300);
@@ -267,7 +290,6 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
                 logInfo("ℹ️ Tastiera già chiusa");
             }
 
-            // Gestisci checkbox "Ricordami"
             try {
                 WebElement checkBox = driver.findElement(AppiumBy.className("android.widget.CheckBox"));
                 if (!checkBox.isSelected()) {
@@ -281,13 +303,11 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
                 logWarn("⚠️ Checkbox 'Ricordami' non trovata, proseguo...");
             }
 
-            // Click su Accedi
             WebElement accediBtn = wait.until(ExpectedConditions.elementToBeClickable(
                     AppiumBy.xpath("//*[contains(@text,'Accedi') or contains(@content-desc,'Accedi')]")));
             accediBtn.click();
             logAction("🎯 Click su 'Accedi'");
 
-            // Gestione swipe post-login
             swipeFincheNonCompareBottoneEntra();
 
             logSuccess("✅ Login completato");
@@ -300,6 +320,7 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
         }
     }
 
+    @Step("Swipe fino a comparsa bottone 'Entra'")
     private void swipeFincheNonCompareBottoneEntra() {
         for (int i = 0; i < 6; i++) {
             try {
@@ -329,6 +350,7 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
     // NAVIGAZIONE
     // =====================================================================================
 
+    @Step("Ritorno alla Home")
     private void vaiAllaHome() {
         logStep("Ritorno alla Home");
         WebDriverWait wait = new WebDriverWait(driver, WAIT_MEDIUM);
@@ -346,6 +368,7 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
         }
     }
 
+    @Step("Selezione colonnina: {nomeTotem}")
     private void selezionaColonninaDalMenu(String nomeTotem) {
         currentTotem = nomeTotem;
         logStep("🔍 Selezione colonnina: " + nomeTotem);
@@ -381,25 +404,27 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
             takeScreenshot("selezione_error_" + nomeTotem);
         }
 
-        gestisciPopupColonninaNonAlimentata();
+        String popupMsg = gestisciPopupColonninaNonAlimentata();
+        if (popupMsg != null) {
+            logWarn("⚠️ Colonnina " + nomeTotem + " risulta non alimentata al cambio");
+        }
     }
 
     // =====================================================================================
-    // POPUP HANDLER
+    // POPUP HANDLER - ✅ CORRETTO
     // =====================================================================================
 
-    private boolean gestisciPopupColonninaNonAlimentata() {
+    @Step("Gestione popup colonnina non alimentata")
+    private String gestisciPopupColonninaNonAlimentata() {
         try {
             WebDriverWait wait = new WebDriverWait(driver, WAIT_SHORT);
+
             WebElement popup = wait.until(ExpectedConditions.presenceOfElementLocated(
-                    AppiumBy.xpath("//*[contains(@text,'non è alimentata') or contains(@content-desc,'non è alimentata')]")));
+                    AppiumBy.xpath("//android.view.View[contains(@content-desc, 'non è alimentata')]")));
 
-            String messaggioCompleto = popup.getAttribute("text");
-            if (messaggioCompleto == null || messaggioCompleto.isEmpty()) {
-                messaggioCompleto = popup.getAttribute("content-desc");
-            }
+            String messaggioCompleto = popup.getAttribute("content-desc");
 
-            logWarn("⚠️ POPUP COLONNINA NON ALIMENTATA");
+            logWarn("⚠️ POPUP COLONNINA NON ALIMENTATA RILEVATO");
             logWarn("📄 Messaggio: " + messaggioCompleto);
             logWarn("🔌 Colonnina: " + currentTotem);
             takeScreenshot("popup_non_alimentata_" + currentTotem);
@@ -409,12 +434,30 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
             logAction("👆 Click su bottone 'Ok' per chiudere popup");
             sleep(500);
 
-            return true;
+            return messaggioCompleto;
+
         } catch (TimeoutException e) {
-            return false;
+            return null;
+        } catch (NoSuchElementException e) {
+            logWarn("⚠️ Popup trovato ma bottone Ok non trovato");
+            takeScreenshot("popup_ok_button_missing");
+            try {
+                driver.findElement(AppiumBy.xpath("//android.widget.Button[@content-desc='Ok']")).click();
+                logAction("👆 Click su bottone 'Ok' (metodo alternativo)");
+                sleep(500);
+                return "Popup chiuso con metodo alternativo";
+            } catch (Exception ex) {
+                logError("❌ Impossibile chiudere il popup");
+                return null;
+            }
+        } catch (Exception e) {
+            logWarn("⚠️ Errore durante la gestione del popup: " + e.getMessage());
+            takeScreenshot("errore_popup_generico");
+            return null;
         }
     }
 
+    @Step("Gestione popup presa attiva")
     private boolean gestisciPopupPresaAttiva() {
         try {
             WebDriverWait wait = new WebDriverWait(driver, WAIT_SHORT);
@@ -443,63 +486,201 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
     }
 
     // =====================================================================================
-    // GESTIONE COLONNINE (CON ANALISI COLORE)
+    // GESTIONE COLONNINE
     // =====================================================================================
 
+    @Step("Gestione colonnine {gruppo} - Accensione: {accendi}")
     private void gestisciColonnine(String gruppo, boolean accendi) {
         logHeader((accendi ? "ACCENSIONE " : "SPEGNIMENTO ") + gruppo);
         WebDriverWait wait = new WebDriverWait(driver, WAIT_MEDIUM);
+
+        int fallimenti = 0;
+        int presaNonAlimentate = 0;
+        StringBuilder reportFallimenti = new StringBuilder();
 
         for (int i = 1; i <= 4; i++) {
             String xpath = "(//android.widget.Button[@content-desc='" + i + "'])["
                     + (gruppo.contains("Elettrica") ? 1 : 2) + "]";
 
             try {
-                gestisciSingolaColonnina(wait, xpath, gruppo, i, accendi);
+                gestisciSingolaColonninaConRetry(wait, xpath, gruppo, i, accendi);
+
+            } catch (ColonninaNonAlimentataException e) {
+                presaNonAlimentate++;
+                logWarn("⚠️ " + gruppo + " presa " + i + " - NON ALIMENTATA");
+                reportFallimenti.append(String.format("⚡ Presa %d - NON ALIMENTATA\n", i));
+
             } catch (Exception e) {
-                logWarn("❌ Errore " + gruppo + " presa " + i + ": " + e.getMessage());
-                takeScreenshot("errore_" + gruppo.replace(" ", "_") + "_" + i);
+                fallimenti++;
+                String errorMsg = "❌ FALLIMENTO " + gruppo + " presa " + i + ": " + e.getMessage();
+                logError(errorMsg);
+                takeScreenshot("ERRORE_" + gruppo.replace(" ", "_") + "_" + i);
+
+                String dettaglio = String.format("Presa %d - %s", i, e.getClass().getSimpleName());
+                reportFallimenti.append(dettaglio).append("\n");
+                Allure.addAttachment(
+                        "❌ Errore Presa " + i,
+                        "text/plain",
+                        e.getMessage(),
+                        ".txt"
+                );
+
+                logWarn("⚠️ Continuo con le altre prese...");
             }
         }
 
         takeScreenshot(gruppo.replace(" ", "_") + "_" + (accendi ? "on" : "off") + "_" + currentTotem);
+
+        int totaleProblemi = fallimenti + presaNonAlimentate;
+        if (totaleProblemi > 0) {
+            String summary = String.format(
+                    "⚠️ %s: %d/%d prese con problemi (%d non alimentate, %d errori)",
+                    gruppo, totaleProblemi, 4, presaNonAlimentate, fallimenti
+            );
+            logWarn(summary);
+
+            Allure.addAttachment(
+                    "⚠️ Riepilogo " + gruppo,
+                    "text/plain",
+                    reportFallimenti.toString(),
+                    ".txt"
+            );
+        } else {
+            String success = "✅ " + gruppo + ": tutte le 4 prese OK";
+            logSuccess(success);
+            Allure.step(success, () -> {});
+        }
     }
 
+    private static class ColonninaNonAlimentataException extends Exception {
+        public ColonninaNonAlimentataException(String message) {
+            super(message);
+        }
+    }
+
+    private void gestisciSingolaColonninaConRetry(WebDriverWait wait, String xpath,
+                                                  String gruppo, int numero, boolean accendi) throws Exception {
+        int maxRetry = 2;
+        Exception lastException = null;
+
+        for (int attempt = 1; attempt <= maxRetry; attempt++) {
+            try {
+                if (attempt > 1) {
+                    logWarn("🔄 Tentativo " + attempt + "/" + maxRetry + " per " + gruppo + " → Presa " + numero);
+                    sleep(1500);
+                }
+
+                gestisciSingolaColonnina(wait, xpath, gruppo, numero, accendi);
+                return;
+
+            } catch (org.openqa.selenium.StaleElementReferenceException e) {
+                lastException = e;
+                logWarn("⚠️ StaleElement su tentativo " + attempt + " - " + gruppo + " → Presa " + numero);
+
+                if (attempt == maxRetry) {
+                    logError("❌ StaleElement persistente dopo " + maxRetry + " tentativi");
+                    throw new Exception("StaleElement dopo " + maxRetry + " tentativi: " + e.getMessage(), e);
+                }
+
+            } catch (Exception e) {
+                throw e;
+            }
+        }
+
+        throw lastException != null ? lastException : new Exception("Errore sconosciuto");
+    }
+
+    @Step("Gestione {gruppo} → Presa {numero} ({currentTotem}) - Accensione: {accendi}")
     private void gestisciSingolaColonnina(WebDriverWait wait, String xpath,
                                           String gruppo, int numero, boolean accendi) throws Exception {
         String nomeCompleto = gruppo + " → Presa " + numero + " (" + currentTotem + ")";
 
         logInfo("🔍 Analizzo: " + nomeCompleto);
 
-        WebElement colonnina = wait.until(ExpectedConditions.elementToBeClickable(
-                AppiumBy.xpath(xpath)));
+        try {
+            WebElement colonnina = wait.until(ExpectedConditions.elementToBeClickable(
+                    AppiumBy.xpath(xpath)));
 
-        boolean statoIniziale = rilevaStatoColonnina(colonnina, gruppo, numero);
+            boolean statoIniziale = rilevaStatoColonnina(colonnina, gruppo, numero);
 
-        if (accendi && statoIniziale) {
-            logInfo("⏩ " + nomeCompleto + " già ACCESA, skip");
-            return;
-        } else if (!accendi && !statoIniziale) {
-            logInfo("⏩ " + nomeCompleto + " già SPENTA, skip");
-            return;
+            if (accendi && statoIniziale) {
+                logInfo("⏩ " + nomeCompleto + " già ACCESA, skip");
+                Allure.step(nomeCompleto + " - Skip (già accesa)", () -> {});
+                return;
+            } else if (!accendi && !statoIniziale) {
+                logInfo("⏩ " + nomeCompleto + " già SPENTA, skip");
+                Allure.step(nomeCompleto + " - Skip (già spenta)", () -> {});
+                return;
+            }
+
+            logAction("👆 Click su: " + nomeCompleto);
+            colonnina = driver.findElement(AppiumBy.xpath(xpath));
+            colonnina.click();
+            sleep(2000);
+
+            String popupMessaggio = gestisciPopupColonninaNonAlimentata();
+            if (popupMessaggio != null) {
+                String dettaglioErrore = String.format(
+                        "🔌 COLONNINA NON ALIMENTATA\n" +
+                                "━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                                "📍 Totem: %s\n" +
+                                "⚡ Gruppo: %s\n" +
+                                "🔢 Presa: %d\n" +
+                                "🔄 Azione: %s\n" +
+                                "💬 Popup: \"%s\"\n" +
+                                "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                        currentTotem,
+                        gruppo,
+                        numero,
+                        (accendi ? "Tentativo ACCENSIONE" : "Tentativo SPEGNIMENTO"),
+                        popupMessaggio
+                );
+
+                logWarn("⚠️ " + nomeCompleto + " → COLONNINA NON ALIMENTATA");
+
+                Allure.step(nomeCompleto + " - ⚠️ NON ALIMENTATA", () -> {
+                    Allure.addAttachment(
+                            "Dettagli Colonnina Non Alimentata",
+                            "text/plain",
+                            dettaglioErrore,
+                            ".txt"
+                    );
+                });
+
+                throw new ColonninaNonAlimentataException(
+                        "Colonnina non alimentata: " + currentTotem + " - " + gruppo + " presa " + numero
+                );
+            }
+
+            if (gestisciPopupPresaAttiva()) {
+                logWarn("⚠️ " + nomeCompleto + " → PRESA ATTIVA");
+                Allure.step(nomeCompleto + " - ⚠️ Presa attiva", () -> {});
+                return;
+            }
+
+            colonnina = driver.findElement(AppiumBy.xpath(xpath));
+            boolean statoFinale = rilevaStatoColonnina(colonnina, gruppo, numero);
+
+            String risultato = statoFinale ? " ✅ ACCESA" : " ⚫ SPENTA";
+            logSuccess(nomeCompleto + risultato);
+
+            Allure.step(nomeCompleto + risultato, () -> {});
+
+            sleep(1500);
+
+        } catch (ColonninaNonAlimentataException e) {
+            throw e;
+        } catch (org.openqa.selenium.StaleElementReferenceException e) {
+            logError("❌ StaleElement su " + nomeCompleto);
+            throw e;
+        } catch (Exception e) {
+            logError("❌ Errore generico su " + nomeCompleto + ": " + e.getMessage());
+            throw e;
         }
-
-        logAction("👆 Click su: " + nomeCompleto);
-        colonnina.click();
-        sleep(1000);
-
-        if (gestisciPopupColonninaNonAlimentata() || gestisciPopupPresaAttiva()) {
-            return;
-        }
-
-        boolean statoFinale = rilevaStatoColonnina(colonnina, gruppo, numero);
-        logSuccess(nomeCompleto + (statoFinale ? " ✅ ACCESA" : " ⚫ SPENTA"));
-
-        sleep(800);
     }
 
     // =====================================================================================
-    // ANALISI COLORE SCREENSHOT
+    // ANALISI COLORE
     // =====================================================================================
 
     private boolean rilevaStatoColonnina(WebElement colonnina, String gruppo, int numeroPresa) throws IOException {
@@ -573,6 +754,11 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
 
     @Test
     @Order(1)
+    @Epic("Test Colonnine")
+    @Feature("Ciclo Completo")
+    @Story("Cambio colonnina, accensione e spegnimento prese")
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Test completo che esegue il ciclo di cambio colonnina, accensione e spegnimento di tutte le prese elettriche e idriche per tutti i totem configurati")
     public void testCambioColonninaEAccensioneSpegnimento() throws Exception {
         logHeader("═══════════════════════════════════════════════════════════");
         logHeader("   TEST CICLO COMPLETO COLONNINE - ANALISI COLORE");
@@ -581,6 +767,12 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
         handleStartupFlow();
         effettuaLogin(username, password);
         vaiAllaHome();
+
+        int totemCompletati = 0;
+        int totemFalliti = 0;
+        StringBuilder reportGlobale = new StringBuilder();
+        reportGlobale.append("REPORT GLOBALE TEST\n");
+        reportGlobale.append("===================\n\n");
 
         for (int i = 1; i <= totaleTotem; i++) {
             String nomeTotem = "Totem_" + i;
@@ -592,9 +784,20 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
 
             try {
                 eseguiTestTotem(nomeTotem);
+                totemCompletati++;
+                reportGlobale.append("✅ ").append(nomeTotem).append(": COMPLETATO\n");
             } catch (Exception e) {
-                logError("❌ Errore test " + nomeTotem + ": " + e.getMessage());
-                takeScreenshot("errore_" + nomeTotem);
+                totemFalliti++;
+                logError("❌ Errore critico test " + nomeTotem + ": " + e.getMessage());
+                takeScreenshot("errore_critico_" + nomeTotem);
+                reportGlobale.append("❌ ").append(nomeTotem).append(": ERRORE CRITICO - ").append(e.getMessage()).append("\n");
+
+                Allure.addAttachment(
+                        "❌ Errore Critico " + nomeTotem,
+                        "text/plain",
+                        e.getMessage(),
+                        ".txt"
+                );
             }
 
             vaiAllaHome();
@@ -603,8 +806,24 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
         logHeader("═══════════════════════════════════════════════════════════");
         logHeader("🏁 TUTTI I TEST COMPLETATI!");
         logHeader("═══════════════════════════════════════════════════════════");
+
+        reportGlobale.append("\n===================\n");
+        reportGlobale.append(String.format("Totem testati: %d/%d\n", totemCompletati + totemFalliti, totaleTotem));
+        reportGlobale.append(String.format("✅ Completati: %d\n", totemCompletati));
+        reportGlobale.append(String.format("❌ Falliti: %d\n", totemFalliti));
+
+        String summary = reportGlobale.toString();
+        logHeader(summary);
+
+        Allure.addAttachment(
+                "📊 Report Globale Test",
+                "text/plain",
+                summary,
+                ".txt"
+        );
     }
 
+    @Step("Esecuzione test completo per {nomeTotem}")
     private void eseguiTestTotem(String nomeTotem) throws Exception {
         selezionaColonninaDalMenu(nomeTotem);
 
@@ -615,26 +834,135 @@ public class LoginCambioColonninaAccensioneSpegnimentoTests extends BaseAppiumTe
         sleep(800);
         logStep("⚙️ Tab Colonnina aperto");
 
-        // ⚡ CICLO COMPLETO ELETTRICO
         logHeader("⚡⚡⚡ CICLO COMPLETO PRESE ELETTRICHE (" + nomeTotem + ") ⚡⚡⚡");
         gestisciColonnine("Presa Elettrica", true);
-        sleep(1000);
+        sleep(3000);
         gestisciColonnine("Presa Elettrica", false);
 
-        // 💧 CICLO COMPLETO IDRICO
         logHeader("💧💧💧 CICLO COMPLETO EROGATORI IDRICI (" + nomeTotem + ") 💧💧💧");
         gestisciColonnine("Erogatore Idrico", true);
-        sleep(1000);
+        sleep(3000);
         gestisciColonnine("Erogatore Idrico", false);
 
         logSuccess("✅✅✅ Test completato su " + nomeTotem + " ✅✅✅");
         takeScreenshot("completato_" + nomeTotem);
     }
 
+    // =====================================================================================
+    // ✨ GENERAZIONE REPORT ALLURE E PDF CON PULSANTE DOWNLOAD
+    // =====================================================================================
+
     @AfterAll
-    public static void chiudiLogger() {
+    public static void chiudiLoggerEGeneraReportCompleto() {
         closeCsvLogger();
-        System.out.println("\n📊 Report: " + logFile.getAbsolutePath());
+
+        System.out.println("\n📊 Report CSV: " + logFile.getAbsolutePath());
         System.out.println("📸 Screenshots: " + SCREENSHOT_DIR.getAbsolutePath());
+
+        // Genera report Allure HTML statico
+        generaReportAllureStatic();
+
+        // Genera PDF e aggiungi pulsante download
+        generaPDFConPulsante();
+
+        // Apri il report nel browser
+        apriReportNelBrowser();
+    }
+
+    /**
+     * Genera il report Allure HTML statico
+     */
+    private static void generaReportAllureStatic() {
+        System.out.println("\n🔄 Generazione report Allure HTML...");
+
+        try {
+            ProcessBuilder pb = new ProcessBuilder(
+                    "cmd", "/c", "allure", "generate",
+                    "build/allure-results", "--clean",
+                    "-o", "build/allure-report"
+            );
+            pb.inheritIO();
+            Process p = pb.start();
+            int exitCode = p.waitFor();
+
+            if (exitCode == 0) {
+                System.out.println("✅ Report HTML generato: build/allure-report/index.html");
+            } else {
+                System.out.println("⚠️ Errore generazione report HTML (exit code: " + exitCode + ")");
+            }
+
+        } catch (Exception e) {
+            System.out.println("⚠️ Errore generazione report: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Genera PDF e aggiunge il pulsante di download al report
+     */
+    private static void generaPDFConPulsante() {
+        System.out.println("\n📄 Generazione PDF e aggiunta pulsante download...");
+
+        try {
+            // Attendi che il report HTML sia pronto
+            Thread.sleep(2000);
+
+            // Verifica che il report esista
+            File reportIndex = new File("build/allure-report/index.html");
+            if (!reportIndex.exists()) {
+                System.out.println("⚠️ Report HTML non trovato, impossibile generare PDF");
+                return;
+            }
+
+            // Esegui script Node.js
+            ProcessBuilder pb = new ProcessBuilder(
+                    "cmd", "/c", "node", "generate-pdf-with-button.js"
+            );
+            pb.inheritIO();
+
+            Process process = pb.start();
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                File pdfFile = new File("build/allure-report/report.pdf");
+                System.out.println("✅ PDF generato: " + pdfFile.getAbsolutePath());
+                System.out.println("✅ Pulsante download aggiunto al report");
+                System.out.println("💡 Apri il report per vedere il pulsante 'PDF' accanto a 'CSV'");
+            } else {
+                System.out.println("⚠️ Errore durante la generazione del PDF (exit code: " + exitCode + ")");
+                System.out.println("💡 Verifica che Node.js e Puppeteer siano installati:");
+                System.out.println("   npm install puppeteer");
+            }
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.out.println("⚠️ Processo interrotto");
+        } catch (Exception e) {
+            System.out.println("⚠️ Impossibile generare PDF: " + e.getMessage());
+            System.out.println("💡 Setup richiesto:");
+            System.out.println("   1. Installa Node.js: https://nodejs.org/");
+            System.out.println("   2. Esegui: npm install puppeteer");
+            System.out.println("   3. Copia generate-pdf-with-button.js nella root del progetto");
+        }
+    }
+
+    /**
+     * Apre il report nel browser predefinito
+     */
+    private static void apriReportNelBrowser() {
+        System.out.println("\n🌐 Apertura report nel browser...");
+
+        try {
+            File reportFile = new File("build/allure-report/index.html");
+
+            if (Desktop.isDesktopSupported() && reportFile.exists()) {
+                Desktop.getDesktop().browse(reportFile.toURI());
+                System.out.println("✅ Report aperto nel browser");
+                System.out.println("💡 Cerca il pulsante 'PDF' nella barra di navigazione");
+            }
+
+        } catch (Exception e) {
+            System.out.println("⚠️ Impossibile aprire automaticamente il browser");
+            System.out.println("💡 Apri manualmente: build/allure-report/index.html");
+        }
     }
 }

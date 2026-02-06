@@ -40,7 +40,6 @@ allure-report/
 ########################################
 local.properties
 .env
-test.properties
 
 ########################################
 # Temporary / Cache
@@ -48,3 +47,16 @@ test.properties
 tmp/
 cache/
 *.tmp
+
+########################################
+# Node.js / NPM
+########################################
+node_modules/
+
+
+# 1. Aggiungi applica-fix.bat al .gitignore
+echo "" >> .gitignore
+echo "########################################" >> .gitignore
+echo "# Script personali / temporanei" >> .gitignore
+echo "########################################" >> .gitignore
+echo "applica-fix.bat" >> .gitignore
