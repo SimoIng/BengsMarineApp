@@ -720,7 +720,7 @@ public class LoginCambioColonninaAccensioneSpegnimentoTestsParametrized extends 
                 logInfo("   ✅ Numero totem validato correttamente");
             }
 
-            return numeroReale;
+            return numeroConfigurato;
 
         } catch (Exception e) {
             logWarn("   ⚠️ Errore validazione: " + e.getMessage());
